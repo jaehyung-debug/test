@@ -1,0 +1,2 @@
+import { Sidebar } from "@/components/common/sidebar";
+export default function DashboardLayout({children}:{children:React.ReactNode}){return <><Sidebar/><main className="ml-64 min-h-screen"><header className="flex h-16 items-center justify-between border-b bg-white px-8"><span className="text-sm text-slate-500">홈 / 대시보드</span><span className="text-sm font-medium">관리자</span></header>{children}</main></>}
