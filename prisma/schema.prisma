@@ -76,6 +76,11 @@ enum EvidenceType {
   NONE
 }
 
+enum ExpenseAmountInputType {
+  SUPPLY
+  TOTAL
+}
+
 enum StatementType {
   TRANSACTION
   DELIVERY
@@ -293,6 +298,7 @@ model Project {
   managerId       String
   manager         User            @relation(fields: [managerId], references: [id])
   description     String?
+  memo            String?
   startDate       DateTime
   expectedEndDate DateTime?
   actualEndDate   DateTime?
@@ -339,14 +345,15 @@ model ProjectBudget {
 }
 
 model Expense {
-  id                String          @id @default(cuid())
-  expenseNumber     String          @unique
+  id                String                 @id @default(cuid())
+  expenseNumber     String                 @unique
   projectId         String
-  project           Project         @relation(fields: [projectId], references: [id])
+  project           Project                @relation(fields: [projectId], references: [id])
   expenseCategoryId String
-  expenseCategory   ExpenseCategory @relation(fields: [expenseCategoryId], references: [id])
+  expenseCategory   ExpenseCategory        @relation(fields: [expenseCategoryId], references: [id])
   supplierId        String?
-  supplier          Client?         @relation(fields: [supplierId], references: [id])
+  supplier          Client?                @relation(fields: [supplierId], references: [id])
+  supplierName      String?
   expenseDate       DateTime
   description       String
   quantity          Decimal
@@ -354,20 +361,22 @@ model Expense {
   supplyAmount      Decimal
   vatAmount         Decimal
   totalAmount       Decimal
+  vatRate           Decimal                @default(10)
+  amountInputType   ExpenseAmountInputType @default(SUPPLY)
   paymentMethod     PaymentMethod
   payerName         String?
   evidenceType      EvidenceType
   evidenceFileUrl   String?
-  status            ExpenseStatus   @default(DRAFT)
+  status            ExpenseStatus          @default(DRAFT)
   requestedById     String
-  requestedBy       User            @relation("ExpenseRequester", fields: [requestedById], references: [id])
+  requestedBy       User                   @relation("ExpenseRequester", fields: [requestedById], references: [id])
   approvedById      String?
-  approvedBy        User?           @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  approvedBy        User?                  @relation("ExpenseApprover", fields: [approvedById], references: [id])
   approvedAt        DateTime?
   paidAt            DateTime?
   memo              String?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
   deletedAt         DateTime?
 
   @@index([projectId, status])
