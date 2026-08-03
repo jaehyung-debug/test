@@ -112,6 +112,11 @@ enum ApprovalStatus {
   CANCELED
 }
 
+enum DeliveryDeadlineType {
+  DATE
+  NEGOTIATION
+}
+
 model User {
   id                 String       @id @default(cuid())
   email              String       @unique
@@ -213,38 +218,40 @@ model Product {
 }
 
 model Quotation {
-  id                String          @id @default(cuid())
-  quotationNumber   String
-  revision          Int             @default(1)
-  clientId          String
-  client            Client          @relation(fields: [clientId], references: [id])
-  projectName       String
-  title             String
-  quotationDate     DateTime
-  validUntil        DateTime?
-  expectedStartDate DateTime?
-  expectedEndDate   DateTime?
-  paymentTerms      String?
-  deliveryTerms     String?
-  note              String?
-  status            QuotationStatus @default(DRAFT)
-  subtotal          Decimal
-  discountAmount    Decimal
-  taxableAmount     Decimal
-  vatAmount         Decimal
-  totalAmount       Decimal
-  createdById       String
-  createdBy         User            @relation("QuotationCreator", fields: [createdById], references: [id])
-  approvedById      String?
-  approvedBy        User?           @relation("QuotationApprover", fields: [approvedById], references: [id])
-  approvedAt        DateTime?
-  sentAt            DateTime?
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
-  deletedAt         DateTime?
-  items             QuotationItem[]
-  project           Project?
-  statements        Statement[]
+  id                   String               @id @default(cuid())
+  quotationNumber      String
+  revision             Int                  @default(1)
+  clientId             String
+  client               Client               @relation(fields: [clientId], references: [id])
+  projectName          String
+  title                String
+  quotationDate        DateTime
+  validUntil           DateTime?
+  expectedStartDate    DateTime?
+  expectedEndDate      DateTime?
+  paymentTerms         String?
+  deliveryTerms        String?
+  deliveryDeadlineType DeliveryDeadlineType @default(NEGOTIATION)
+  deliveryDeadlineDate DateTime?
+  note                 String?
+  status               QuotationStatus      @default(DRAFT)
+  subtotal             Decimal
+  discountAmount       Decimal
+  taxableAmount        Decimal
+  vatAmount            Decimal
+  totalAmount          Decimal
+  createdById          String
+  createdBy            User                 @relation("QuotationCreator", fields: [createdById], references: [id])
+  approvedById         String?
+  approvedBy           User?                @relation("QuotationApprover", fields: [approvedById], references: [id])
+  approvedAt           DateTime?
+  sentAt               DateTime?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  deletedAt            DateTime?
+  items                QuotationItem[]
+  project              Project?
+  statements           Statement[]
 
   @@unique([quotationNumber, revision])
   @@index([clientId, status])
