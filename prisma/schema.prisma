@@ -104,6 +104,19 @@ enum PaymentType {
   OTHER
 }
 
+enum ReceivableDueType {
+  DATE
+  NEGOTIATION
+}
+
+enum IncomingPaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CARD
+  OFFSET
+  OTHER
+}
+
 enum ApprovalTargetType {
   QUOTATION
   EXPENSE
@@ -288,31 +301,32 @@ model QuotationItem {
 }
 
 model Project {
-  id              String          @id @default(cuid())
-  projectCode     String          @unique
-  projectName     String
-  clientId        String
-  client          Client          @relation(fields: [clientId], references: [id])
-  quotationId     String?         @unique
-  quotation       Quotation?      @relation(fields: [quotationId], references: [id])
-  managerId       String
-  manager         User            @relation(fields: [managerId], references: [id])
-  description     String?
-  memo            String?
-  startDate       DateTime
-  expectedEndDate DateTime?
-  actualEndDate   DateTime?
-  contractAmount  Decimal
-  budgetAmount    Decimal
-  progressRate    Decimal         @default(0)
-  status          ProjectStatus   @default(PLANNED)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  deletedAt       DateTime?
-  budgets         ProjectBudget[]
-  expenses        Expense[]
-  statements      Statement[]
-  payments        Payment[]
+  id                  String               @id @default(cuid())
+  projectCode         String               @unique
+  projectName         String
+  clientId            String
+  client              Client               @relation(fields: [clientId], references: [id])
+  quotationId         String?              @unique
+  quotation           Quotation?           @relation(fields: [quotationId], references: [id])
+  managerId           String
+  manager             User                 @relation(fields: [managerId], references: [id])
+  description         String?
+  memo                String?
+  startDate           DateTime
+  expectedEndDate     DateTime?
+  actualEndDate       DateTime?
+  contractAmount      Decimal
+  budgetAmount        Decimal
+  progressRate        Decimal              @default(0)
+  status              ProjectStatus        @default(PLANNED)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  budgets             ProjectBudget[]
+  expenses            Expense[]
+  statements          Statement[]
+  payments            Payment[]
+  receivableSchedules ReceivableSchedule[]
 
   @@index([clientId, status])
   @@index([deletedAt])
@@ -433,27 +447,55 @@ model StatementItem {
 }
 
 model Payment {
-  id               String      @id @default(cuid())
-  paymentNumber    String      @unique
-  clientId         String
-  client           Client      @relation(fields: [clientId], references: [id])
-  projectId        String
-  project          Project     @relation(fields: [projectId], references: [id])
-  paymentDate      DateTime
-  amount           Decimal
-  paymentType      PaymentType
-  bankName         String?
-  accountNumber    String?
-  taxInvoiceIssued Boolean     @default(false)
-  taxInvoiceDate   DateTime?
-  confirmedById    String
-  confirmedBy      User        @relation(fields: [confirmedById], references: [id])
-  memo             String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  deletedAt        DateTime?
+  id                    String                @id @default(cuid())
+  paymentNumber         String                @unique
+  clientId              String
+  client                Client                @relation(fields: [clientId], references: [id])
+  projectId             String
+  project               Project               @relation(fields: [projectId], references: [id])
+  paymentDate           DateTime
+  amount                Decimal
+  paymentType           PaymentType
+  receivableScheduleId  String?
+  receivableSchedule    ReceivableSchedule?   @relation(fields: [receivableScheduleId], references: [id])
+  incomingPaymentMethod IncomingPaymentMethod @default(BANK_TRANSFER)
+  depositorName         String?
+  bankName              String?
+  accountNumber         String?
+  taxInvoiceIssued      Boolean               @default(false)
+  taxInvoiceDate        DateTime?
+  confirmedById         String
+  confirmedBy           User                  @relation(fields: [confirmedById], references: [id])
+  memo                  String?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  deletedAt             DateTime?
 
   @@index([projectId, paymentDate])
+  @@index([deletedAt])
+}
+
+model ReceivableSchedule {
+  id               String            @id @default(cuid())
+  projectId        String
+  project          Project           @relation(fields: [projectId], references: [id])
+  sequence         Int
+  paymentType      PaymentType
+  title            String
+  expectedAmount   Decimal
+  dueType          ReceivableDueType @default(NEGOTIATION)
+  dueDate          DateTime?
+  taxInvoiceIssued Boolean           @default(false)
+  taxInvoiceDate   DateTime?
+  taxInvoiceNumber String?
+  memo             String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  deletedAt        DateTime?
+  payments         Payment[]
+
+  @@unique([projectId, sequence])
+  @@index([projectId, dueDate])
   @@index([deletedAt])
 }
 
