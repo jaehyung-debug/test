@@ -1,0 +1,509 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  STAFF
+  ACCOUNTING
+}
+
+enum ClientType {
+  CUSTOMER
+  SUPPLIER
+  BOTH
+}
+
+enum TaxType {
+  TAXABLE
+  ZERO_RATED
+  TAX_EXEMPT
+}
+
+enum QuotationStatus {
+  DRAFT
+  REVIEW_REQUESTED
+  APPROVED
+  REJECTED
+  SENT
+  NEGOTIATING
+  CONTRACTED
+  ON_HOLD
+  CANCELED
+  EXPIRED
+}
+
+enum ProjectStatus {
+  PLANNED
+  QUOTING
+  CONTRACTED
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  SETTLING
+  CLOSED
+  CANCELED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  APPROVAL_REQUESTED
+  APPROVED
+  REJECTED
+  PAID
+  CANCELED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  BANK_TRANSFER
+  CORPORATE_CARD
+  OTHER
+}
+
+enum EvidenceType {
+  TAX_INVOICE
+  CARD_RECEIPT
+  CASH_RECEIPT
+  SIMPLE_RECEIPT
+  NONE
+}
+
+enum StatementType {
+  TRANSACTION
+  DELIVERY
+  WORK
+  COST
+  MATERIAL
+  BILLING
+}
+
+enum StatementStatus {
+  DRAFT
+  ISSUED
+  CANCELED
+}
+
+enum PaymentType {
+  ADVANCE
+  INTERIM
+  BALANCE
+  FULL
+  OTHER
+}
+
+enum ApprovalTargetType {
+  QUOTATION
+  EXPENSE
+  PROJECT_BUDGET
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELED
+}
+
+model User {
+  id                 String       @id @default(cuid())
+  email              String       @unique
+  passwordHash       String
+  name               String
+  phone              String?
+  role               Role         @default(STAFF)
+  department         String?
+  position           String?
+  isActive           Boolean      @default(true)
+  lastLoginAt        DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?
+  clients            Client[]
+  createdQuotations  Quotation[]  @relation("QuotationCreator")
+  approvedQuotations Quotation[]  @relation("QuotationApprover")
+  managedProjects    Project[]
+  requestedExpenses  Expense[]    @relation("ExpenseRequester")
+  approvedExpenses   Expense[]    @relation("ExpenseApprover")
+  statements         Statement[]
+  payments           Payment[]
+  requestedApprovals Approval[]   @relation("ApprovalRequester")
+  assignedApprovals  Approval[]   @relation("ApprovalApprover")
+  attachments        Attachment[]
+  auditLogs          AuditLog[]
+
+  @@index([deletedAt])
+}
+
+model CompanySetting {
+  id                 String   @id @default(cuid())
+  companyName        String
+  businessNumber     String   @unique
+  representativeName String
+  businessType       String?
+  businessCategory   String?
+  phone              String?
+  email              String?
+  address            String?
+  logoUrl            String?
+  sealUrl            String?
+  bankName           String?
+  bankAccount        String?
+  accountHolder      String?
+  defaultVatRate     Decimal  @default(10)
+  quotationPrefix    String   @default("Q")
+  statementPrefix    String   @default("S")
+  projectPrefix      String   @default("P")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model Client {
+  id                 String      @id @default(cuid())
+  clientCode         String      @unique
+  companyName        String
+  businessNumber     String      @unique
+  representativeName String?
+  contactName        String?
+  contactPhone       String?
+  contactEmail       String?
+  businessType       String?
+  businessCategory   String?
+  address            String?
+  paymentTerms       String?
+  clientType         ClientType  @default(CUSTOMER)
+  memo               String?
+  createdById        String
+  createdBy          User        @relation(fields: [createdById], references: [id])
+  quotations         Quotation[]
+  projects           Project[]
+  expenses           Expense[]
+  statements         Statement[]
+  payments           Payment[]
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  deletedAt          DateTime?
+
+  @@index([companyName])
+  @@index([deletedAt])
+}
+
+model Product {
+  id             String          @id @default(cuid())
+  productCode    String          @unique
+  name           String
+  specification  String?
+  unit           String
+  defaultPrice   Decimal
+  taxType        TaxType         @default(TAXABLE)
+  category       String?
+  description    String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+  quotationItems QuotationItem[]
+}
+
+model Quotation {
+  id                String          @id @default(cuid())
+  quotationNumber   String
+  revision          Int             @default(1)
+  clientId          String
+  client            Client          @relation(fields: [clientId], references: [id])
+  projectName       String
+  title             String
+  quotationDate     DateTime
+  validUntil        DateTime?
+  expectedStartDate DateTime?
+  expectedEndDate   DateTime?
+  paymentTerms      String?
+  deliveryTerms     String?
+  note              String?
+  status            QuotationStatus @default(DRAFT)
+  subtotal          Decimal
+  discountAmount    Decimal
+  taxableAmount     Decimal
+  vatAmount         Decimal
+  totalAmount       Decimal
+  createdById       String
+  createdBy         User            @relation("QuotationCreator", fields: [createdById], references: [id])
+  approvedById      String?
+  approvedBy        User?           @relation("QuotationApprover", fields: [approvedById], references: [id])
+  approvedAt        DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+  items             QuotationItem[]
+  project           Project?
+  statements        Statement[]
+
+  @@unique([quotationNumber, revision])
+  @@index([clientId, status])
+  @@index([deletedAt])
+}
+
+model QuotationItem {
+  id            String    @id @default(cuid())
+  quotationId   String
+  quotation     Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?  @relation(fields: [productId], references: [id])
+  sortOrder     Int
+  name          String
+  specification String?
+  unit          String
+  quantity      Decimal
+  unitPrice     Decimal
+  discountRate  Decimal
+  supplyAmount  Decimal
+  vatAmount     Decimal
+  totalAmount   Decimal
+  taxType       TaxType
+  note          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([quotationId, sortOrder])
+}
+
+model Project {
+  id              String          @id @default(cuid())
+  projectCode     String          @unique
+  projectName     String
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id])
+  quotationId     String?         @unique
+  quotation       Quotation?      @relation(fields: [quotationId], references: [id])
+  managerId       String
+  manager         User            @relation(fields: [managerId], references: [id])
+  description     String?
+  startDate       DateTime
+  expectedEndDate DateTime?
+  actualEndDate   DateTime?
+  contractAmount  Decimal
+  budgetAmount    Decimal
+  progressRate    Decimal         @default(0)
+  status          ProjectStatus   @default(PLANNED)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  budgets         ProjectBudget[]
+  expenses        Expense[]
+  statements      Statement[]
+  payments        Payment[]
+
+  @@index([clientId, status])
+  @@index([deletedAt])
+}
+
+model ExpenseCategory {
+  id        String          @id @default(cuid())
+  code      String          @unique
+  name      String
+  isActive  Boolean         @default(true)
+  sortOrder Int
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  budgets   ProjectBudget[]
+  expenses  Expense[]
+}
+
+model ProjectBudget {
+  id                String          @id @default(cuid())
+  projectId         String
+  project           Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  expenseCategoryId String
+  expenseCategory   ExpenseCategory @relation(fields: [expenseCategoryId], references: [id])
+  budgetAmount      Decimal
+  memo              String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([projectId, expenseCategoryId])
+}
+
+model Expense {
+  id                String          @id @default(cuid())
+  expenseNumber     String          @unique
+  projectId         String
+  project           Project         @relation(fields: [projectId], references: [id])
+  expenseCategoryId String
+  expenseCategory   ExpenseCategory @relation(fields: [expenseCategoryId], references: [id])
+  supplierId        String?
+  supplier          Client?         @relation(fields: [supplierId], references: [id])
+  expenseDate       DateTime
+  description       String
+  quantity          Decimal
+  unitPrice         Decimal
+  supplyAmount      Decimal
+  vatAmount         Decimal
+  totalAmount       Decimal
+  paymentMethod     PaymentMethod
+  payerName         String?
+  evidenceType      EvidenceType
+  evidenceNumber    String?
+  evidenceFileUrl   String?
+  status            ExpenseStatus   @default(DRAFT)
+  requestedById     String
+  requestedBy       User            @relation("ExpenseRequester", fields: [requestedById], references: [id])
+  approvedById      String?
+  approvedBy        User?           @relation("ExpenseApprover", fields: [approvedById], references: [id])
+  approvedAt        DateTime?
+  paidAt            DateTime?
+  memo              String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  deletedAt         DateTime?
+
+  @@index([projectId, status])
+  @@index([deletedAt])
+}
+
+model Statement {
+  id              String          @id @default(cuid())
+  statementNumber String          @unique
+  statementType   StatementType
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id])
+  projectId       String?
+  project         Project?        @relation(fields: [projectId], references: [id])
+  quotationId     String?
+  quotation       Quotation?      @relation(fields: [quotationId], references: [id])
+  statementDate   DateTime
+  deliveryDate    DateTime?
+  title           String
+  subtotal        Decimal
+  vatAmount       Decimal
+  totalAmount     Decimal
+  note            String?
+  status          StatementStatus @default(DRAFT)
+  createdById     String
+  createdBy       User            @relation(fields: [createdById], references: [id])
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?
+  items           StatementItem[]
+
+  @@index([clientId, status])
+  @@index([deletedAt])
+}
+
+model StatementItem {
+  id            String    @id @default(cuid())
+  statementId   String
+  statement     Statement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  sortOrder     Int
+  name          String
+  specification String?
+  unit          String
+  quantity      Decimal
+  unitPrice     Decimal
+  supplyAmount  Decimal
+  vatAmount     Decimal
+  totalAmount   Decimal
+  note          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([statementId, sortOrder])
+}
+
+model Payment {
+  id               String      @id @default(cuid())
+  paymentNumber    String      @unique
+  clientId         String
+  client           Client      @relation(fields: [clientId], references: [id])
+  projectId        String
+  project          Project     @relation(fields: [projectId], references: [id])
+  paymentDate      DateTime
+  amount           Decimal
+  paymentType      PaymentType
+  paymentMethod    String?
+  bankName         String?
+  accountNumber    String?
+  taxInvoiceIssued Boolean     @default(false)
+  taxInvoiceDate   DateTime?
+  confirmedById    String
+  confirmedBy      User        @relation(fields: [confirmedById], references: [id])
+  memo             String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  deletedAt        DateTime?
+
+  @@index([projectId, paymentDate])
+  @@index([deletedAt])
+}
+
+model Approval {
+  id              String             @id @default(cuid())
+  targetType      ApprovalTargetType
+  targetId        String
+  requesterId     String
+  requester       User               @relation("ApprovalRequester", fields: [requesterId], references: [id])
+  approverId      String
+  approver        User               @relation("ApprovalApprover", fields: [approverId], references: [id])
+  step            Int
+  status          ApprovalStatus     @default(PENDING)
+  requestComment  String?
+  approvalComment String?
+  requestedAt     DateTime           @default(now())
+  processedAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([targetType, targetId, step])
+  @@index([approverId, status])
+}
+
+model Attachment {
+  id           String    @id @default(cuid())
+  targetType   String
+  targetId     String
+  originalName String
+  storedName   String    @unique
+  fileUrl      String
+  mimeType     String
+  fileSize     BigInt
+  uploadedById String
+  uploadedBy   User      @relation(fields: [uploadedById], references: [id])
+  createdAt    DateTime  @default(now())
+  deletedAt    DateTime?
+
+  @@index([targetType, targetId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  targetType String
+  targetId   String?
+  beforeData Json?
+  afterData  Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model DocumentSequence {
+  id           String   @id @default(cuid())
+  type         String
+  year         Int
+  currentValue Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@unique([type, year])
+}

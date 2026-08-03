@@ -1,0 +1,2 @@
+@import "tailwindcss";
+:root{color-scheme:light;--nav:#172033;--accent:#2563eb} body{margin:0;background:#f4f6fa;color:#172033;font-family:Arial,"Noto Sans KR",sans-serif} *{box-sizing:border-box}
