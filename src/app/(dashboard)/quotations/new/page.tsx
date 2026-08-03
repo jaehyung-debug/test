@@ -1,0 +1,4 @@
+import { Notice, PageHeader } from "@/components/common/page";
+import { QuotationForm } from "@/components/forms/quotation-form";
+import { db } from "@/lib/db";
+export default async function NewQuotationPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) { const query = await searchParams; const [clients, products] = await Promise.all([db.client.findMany({ where: { deletedAt: null }, select: { id: true, companyName: true }, orderBy: { companyName: "asc" } }), db.product.findMany({ where: { deletedAt: null, isActive: true }, orderBy: { name: "asc" } })]); return <div className="p-8"><PageHeader title="견적서 신규 등록" /><Notice error={query.error} /><QuotationForm clients={clients} products={products.map((product) => ({ id: product.id, name: product.name, specification: product.specification, unit: product.unit, defaultPrice: product.defaultPrice.toString(), taxType: product.taxType }))} /></div>; }
