@@ -4,3 +4,7 @@ node_modules
 uploads
 coverage
 *.tsbuildinfo
+
+# Local SQLite database
+prisma/dev.db
+prisma/dev.db-journal
