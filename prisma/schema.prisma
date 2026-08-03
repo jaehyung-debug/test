@@ -177,6 +177,7 @@ model CompanySetting {
   address            String?
   logoUrl            String?
   sealUrl            String?
+  sealOriginalName   String?
   bankName           String?
   bankAccount        String?
   accountHolder      String?
@@ -398,29 +399,35 @@ model Expense {
 }
 
 model Statement {
-  id              String          @id @default(cuid())
-  statementNumber String          @unique
-  statementType   StatementType
-  clientId        String
-  client          Client          @relation(fields: [clientId], references: [id])
-  projectId       String?
-  project         Project?        @relation(fields: [projectId], references: [id])
-  quotationId     String?
-  quotation       Quotation?      @relation(fields: [quotationId], references: [id])
-  statementDate   DateTime
-  deliveryDate    DateTime?
-  title           String
-  subtotal        Decimal
-  vatAmount       Decimal
-  totalAmount     Decimal
-  note            String?
-  status          StatementStatus @default(DRAFT)
-  createdById     String
-  createdBy       User            @relation(fields: [createdById], references: [id])
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
-  deletedAt       DateTime?
-  items           StatementItem[]
+  id                   String          @id @default(cuid())
+  statementNumber      String          @unique
+  statementType        StatementType
+  clientId             String
+  client               Client          @relation(fields: [clientId], references: [id])
+  projectId            String?
+  project              Project?        @relation(fields: [projectId], references: [id])
+  quotationId          String?
+  quotation            Quotation?      @relation(fields: [quotationId], references: [id])
+  statementDate        DateTime
+  deliveryDate         DateTime?
+  title                String
+  subtotal             Decimal
+  vatAmount            Decimal
+  totalAmount          Decimal
+  note                 String?
+  recipientManagerName String?
+  recipientDepartment  String?
+  recipientPhone       String?
+  recipientEmail       String?
+  supplierMemo         String?
+  printRemark          String?
+  status               StatementStatus @default(DRAFT)
+  createdById          String
+  createdBy            User            @relation(fields: [createdById], references: [id])
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  deletedAt            DateTime?
+  items                StatementItem[]
 
   @@index([clientId, status])
   @@index([deletedAt])
