@@ -350,7 +350,6 @@ model Expense {
   paymentMethod     PaymentMethod
   payerName         String?
   evidenceType      EvidenceType
-  evidenceNumber    String?
   evidenceFileUrl   String?
   status            ExpenseStatus   @default(DRAFT)
   requestedById     String
@@ -427,7 +426,6 @@ model Payment {
   paymentDate      DateTime
   amount           Decimal
   paymentType      PaymentType
-  paymentMethod    String?
   bankName         String?
   accountNumber    String?
   taxInvoiceIssued Boolean     @default(false)

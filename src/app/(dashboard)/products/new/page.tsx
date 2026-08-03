@@ -1,1 +1,0 @@
-import { ProductForm } from "@/components/forms/product-form";import { Notice,PageHeader } from "@/components/common/page";export default async function Page({searchParams}:{searchParams:Promise<{error?:string}>}){const p=await searchParams;return <div className="p-8"><PageHeader title="품목 신규 등록"/><Notice error={p.error}/><ProductForm/></div>}
