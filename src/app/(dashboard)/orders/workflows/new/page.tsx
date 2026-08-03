@@ -1,0 +1,1 @@
+import{Notice,PageHeader}from"@/components/common/page";import{WorkflowForm}from"@/components/forms/workflow-form";export default async function Page({searchParams}:{searchParams:Promise<{error?:string}>}){const q=await searchParams;return <div className="p-8"><PageHeader title="오더 흐름 등록"/><Notice error={q.error}/><WorkflowForm/></div>}

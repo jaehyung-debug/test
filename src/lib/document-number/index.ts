@@ -8,6 +8,7 @@ function isRetryableSqliteError(error: unknown): boolean {
 }
 
 const wait = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+export async function nextOrderNumber(tx: Prisma.TransactionClient | PrismaClient, date=new Date()) { const period=date.getUTCFullYear()*100+date.getUTCMonth()+1; for(let attempt=0;attempt<5;attempt++){try{const sequence=await tx.documentSequence.upsert({where:{type_year:{type:"order",year:period}},create:{type:"order",year:period,currentValue:1},update:{currentValue:{increment:1}}});return `O-${period}-${String(sequence.currentValue).padStart(5,"0")}`}catch(error){if(!isRetryableSqliteError(error)||attempt===4)throw error;await wait(50*(attempt+1))}}throw new Error("오더번호를 생성하지 못했습니다.")}
 
 export async function nextDocumentNumber(tx: Prisma.TransactionClient | PrismaClient, type: keyof typeof prefixes, year = new Date().getUTCFullYear()) {
  for (let attempt = 0; attempt < 5; attempt += 1) {

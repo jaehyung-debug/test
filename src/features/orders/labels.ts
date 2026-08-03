@@ -1,0 +1,1 @@
+export const orderStatusLabels:Record<string,string>={DRAFT:"작성 중",IN_PROGRESS:"진행 중",ON_HOLD:"보류",COMPLETED:"완료",CANCELED:"취소"};export const stageStatusLabels:Record<string,string>={PENDING:"대기",READY:"준비",IN_PROGRESS:"진행 중",COMPLETED:"완료",BLOCKED:"차단",SKIPPED:"건너뜀"};

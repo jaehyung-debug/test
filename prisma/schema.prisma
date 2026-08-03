@@ -117,6 +117,23 @@ enum IncomingPaymentMethod {
   OTHER
 }
 
+enum OrderStatus {
+  DRAFT
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELED
+}
+
+enum OrderStageStatus {
+  PENDING
+  READY
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  SKIPPED
+}
+
 enum ApprovalTargetType {
   QUOTATION
   EXPENSE
@@ -136,31 +153,34 @@ enum DeliveryDeadlineType {
 }
 
 model User {
-  id                 String       @id @default(cuid())
-  email              String       @unique
-  passwordHash       String
-  name               String
-  phone              String?
-  role               Role         @default(STAFF)
-  department         String?
-  position           String?
-  isActive           Boolean      @default(true)
-  lastLoginAt        DateTime?
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  deletedAt          DateTime?
-  clients            Client[]
-  createdQuotations  Quotation[]  @relation("QuotationCreator")
-  approvedQuotations Quotation[]  @relation("QuotationApprover")
-  managedProjects    Project[]
-  requestedExpenses  Expense[]    @relation("ExpenseRequester")
-  approvedExpenses   Expense[]    @relation("ExpenseApprover")
-  statements         Statement[]
-  payments           Payment[]
-  requestedApprovals Approval[]   @relation("ApprovalRequester")
-  assignedApprovals  Approval[]   @relation("ApprovalApprover")
-  attachments        Attachment[]
-  auditLogs          AuditLog[]
+  id                   String       @id @default(cuid())
+  email                String       @unique
+  passwordHash         String
+  name                 String
+  phone                String?
+  role                 Role         @default(STAFF)
+  department           String?
+  position             String?
+  isActive             Boolean      @default(true)
+  lastLoginAt          DateTime?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  deletedAt            DateTime?
+  clients              Client[]
+  createdQuotations    Quotation[]  @relation("QuotationCreator")
+  approvedQuotations   Quotation[]  @relation("QuotationApprover")
+  managedProjects      Project[]
+  requestedExpenses    Expense[]    @relation("ExpenseRequester")
+  approvedExpenses     Expense[]    @relation("ExpenseApprover")
+  statements           Statement[]
+  payments             Payment[]
+  requestedApprovals   Approval[]   @relation("ApprovalRequester")
+  assignedApprovals    Approval[]   @relation("ApprovalApprover")
+  attachments          Attachment[]
+  auditLogs            AuditLog[]
+  managedOrders        Order[]      @relation("OrderManager")
+  assignedOrderStages  OrderStage[] @relation("OrderStageAssignee")
+  completedOrderStages OrderStage[] @relation("OrderStageCompleter")
 
   @@index([deletedAt])
 }
@@ -211,6 +231,7 @@ model Client {
   expenses           Expense[]
   statements         Statement[]
   payments           Payment[]
+  orders             Order[]
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt
   deletedAt          DateTime?
@@ -271,6 +292,7 @@ model Quotation {
   items                QuotationItem[]
   project              Project?
   statements           Statement[]
+  orders               Order[]
 
   @@unique([quotationNumber, revision])
   @@index([clientId, status])
@@ -328,6 +350,7 @@ model Project {
   statements          Statement[]
   payments            Payment[]
   receivableSchedules ReceivableSchedule[]
+  orders              Order[]
 
   @@index([clientId, status])
   @@index([deletedAt])
@@ -569,4 +592,115 @@ model DocumentSequence {
   updatedAt    DateTime @updatedAt
 
   @@unique([type, year])
+}
+
+model OrderWorkflowTemplate {
+  id          String                       @id @default(cuid())
+  name        String                       @unique
+  description String?
+  isActive    Boolean                      @default(true)
+  createdAt   DateTime                     @default(now())
+  updatedAt   DateTime                     @updatedAt
+  stages      OrderWorkflowStageTemplate[]
+  orders      Order[]
+}
+
+model OrderWorkflowStageTemplate {
+  id                  String                @id @default(cuid())
+  templateId          String
+  template            OrderWorkflowTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  stageCode           String
+  stageName           String
+  sortOrder           Int
+  color               String?
+  defaultDurationDays Int                   @default(0)
+  isRequired          Boolean               @default(true)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@unique([templateId, stageCode])
+  @@unique([templateId, sortOrder])
+}
+
+model Order {
+  id                 String                @id @default(cuid())
+  orderNumber        String                @unique
+  orderName          String
+  workflowTemplateId String
+  workflowTemplate   OrderWorkflowTemplate @relation(fields: [workflowTemplateId], references: [id])
+  clientId           String
+  client             Client                @relation(fields: [clientId], references: [id])
+  quotationId        String?
+  quotation          Quotation?            @relation(fields: [quotationId], references: [id])
+  projectId          String?
+  project            Project?              @relation(fields: [projectId], references: [id])
+  managerId          String
+  manager            User                  @relation("OrderManager", fields: [managerId], references: [id])
+  baseDate           DateTime
+  dueDate            DateTime?
+  status             OrderStatus           @default(DRAFT)
+  progressRate       Decimal               @default(0)
+  note               String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  deletedAt          DateTime?
+  stages             OrderStage[]
+
+  @@index([clientId, status])
+  @@index([projectId])
+  @@index([deletedAt])
+}
+
+model OrderStage {
+  id             String               @id @default(cuid())
+  orderId        String
+  order          Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  stageCode      String
+  stageName      String
+  sortOrder      Int
+  color          String?
+  isRequired     Boolean              @default(true)
+  status         OrderStageStatus     @default(PENDING)
+  plannedStartAt DateTime?
+  plannedEndAt   DateTime?
+  actualStartAt  DateTime?
+  actualEndAt    DateTime?
+  assigneeId     String?
+  assignee       User?                @relation("OrderStageAssignee", fields: [assigneeId], references: [id])
+  memo           String?
+  completedById  String?
+  completedBy    User?                @relation("OrderStageCompleter", fields: [completedById], references: [id])
+  completedAt    DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  links          OrderStageLink[]
+  schedules      OrderStageSchedule[]
+
+  @@unique([orderId, sortOrder])
+  @@index([orderId, status])
+  @@index([assigneeId])
+}
+
+model OrderStageLink {
+  id           String     @id @default(cuid())
+  orderStageId String
+  orderStage   OrderStage @relation(fields: [orderStageId], references: [id], onDelete: Cascade)
+  targetType   String
+  targetId     String
+  label        String?
+  createdAt    DateTime   @default(now())
+
+  @@index([targetType, targetId])
+}
+
+model OrderStageSchedule {
+  id           String     @id @default(cuid())
+  orderStageId String
+  orderStage   OrderStage @relation(fields: [orderStageId], references: [id], onDelete: Cascade)
+  title        String
+  startAt      DateTime
+  endAt        DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@index([orderStageId, startAt])
 }
