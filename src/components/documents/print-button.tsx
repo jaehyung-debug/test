@@ -1,1 +1,1 @@
-"use client";export function PrintButton(){return <button className="print-hidden rounded border px-4 py-2" onClick={()=>window.print()}>인쇄</button>}
+"use client";import{useState}from"react";import{waitForDocumentImages}from"@/lib/document-export/wait-for-images";export function PrintButton(){const[busy,setBusy]=useState(false);return <button className="print-hidden rounded border px-4 py-2 disabled:opacity-50" disabled={busy} onClick={async()=>{setBusy(true);try{await waitForDocumentImages();window.print()}finally{setBusy(false)}}}>{busy?"이미지 준비 중…":"인쇄"}</button>}

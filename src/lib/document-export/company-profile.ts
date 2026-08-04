@@ -27,4 +27,6 @@ export function loadSupplierSnapshot(snapshot: Prisma.JsonValue | null | undefin
   return row as SupplierSnapshot;
 }
 export const snapshotAsJson = (snapshot: SupplierSnapshot) => snapshot as unknown as Prisma.InputJsonValue;
+export function resolveSupplierSnapshotImages(snapshot:SupplierSnapshot,profile:SupplierProfile|null|undefined,isDraft:boolean):SupplierSnapshot{if(!isDraft||!profile)return snapshot;return{...snapshot,logoUrl:snapshot.logoUrl??profile.logoUrl,sealUrl:snapshot.sealUrl??profile.sealUrl}}
+export function supplierSnapshotDiffers(snapshot:SupplierSnapshot|null,profile:SupplierProfile|null|undefined){if(!snapshot||!profile)return false;const current=createSupplierSnapshot(profile,new Date(snapshot.capturedAt));return(Object.keys(current)as(keyof SupplierSnapshot)[]).some(key=>key!=="capturedAt"&&current[key]!==snapshot[key])}
 export function formatBusinessNumber(number: string) { const digits=number.replace(/\D/g,""); return digits.length===10?`${digits.slice(0,3)}-${digits.slice(3,5)}-${digits.slice(5)}`:number; }
