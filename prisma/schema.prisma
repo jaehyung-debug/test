@@ -39,6 +39,13 @@ enum QuotationStatus {
   EXPIRED
 }
 
+enum QuotationCostCategory {
+  MATERIAL
+  LABOR
+  EXPENSE
+  TRAVEL
+}
+
 enum ProjectStatus {
   PLANNED
   QUOTING
@@ -341,6 +348,9 @@ model CompanySetting {
   bankAccount        String?
   accountHolder      String?
   defaultVatRate     Decimal  @default(10)
+  defaultToolLossRate Decimal @default(0)
+  defaultGeneralAdminRate Decimal @default(0)
+  defaultSafetyHealthRate Decimal @default(0)
   quotationPrefix    String   @default("Q")
   statementPrefix    String   @default("S")
   projectPrefix      String   @default("P")
@@ -432,6 +442,17 @@ model Quotation {
   taxableAmount        Decimal
   vatAmount            Decimal
   totalAmount          Decimal
+  materialAmount       Decimal              @default(0)
+  laborAmount          Decimal              @default(0)
+  expenseAmount        Decimal              @default(0)
+  travelAmount         Decimal              @default(0)
+  directCostAmount     Decimal              @default(0)
+  toolLossRate         Decimal              @default(0)
+  toolLossAmount       Decimal              @default(0)
+  generalAdminRate     Decimal              @default(0)
+  generalAdminAmount   Decimal              @default(0)
+  safetyHealthRate     Decimal              @default(0)
+  safetyHealthAmount   Decimal              @default(0)
   createdById          String
   createdBy            User                 @relation("QuotationCreator", fields: [createdById], references: [id])
   approvedById         String?
@@ -470,6 +491,7 @@ model QuotationItem {
   vatAmount        Decimal
   totalAmount      Decimal
   taxType          TaxType
+  costCategory     QuotationCostCategory @default(MATERIAL)
   note             String?
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt

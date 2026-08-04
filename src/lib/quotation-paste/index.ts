@@ -1,18 +1,7 @@
-export type PasteMode = "append" | "replace";
-export type PastedQuotationItem = { productId: null; name: string; specification: string; unit: string; quantity: string; unitPrice: string; discountRate: string; note: string };
-export type ParsedPasteRow = PastedQuotationItem & { sourceRow: number; errors: string[] };
-const headerWords = new Set(["품명", "규격", "단위", "수량", "단가", "할인율", "비고"]);
-function isHeader(columns: string[]) { return columns.slice(0, 4).filter((value) => headerWords.has(value.replace(/\s/g, ""))).length >= 3; }
-export function parseQuotationPaste(text: string): ParsedPasteRow[] {
-  const sourceLines = text.replace(/\r/g, "").split("\n").map((line, index) => ({ line, sourceRow: index + 1 })).filter(({ line }) => line.trim());
-  return sourceLines.filter(({ line }, index) => !(index === 0 && isHeader(line.split("\t").map((value) => value.trim())))).map(({ line, sourceRow }) => {
-    const [name = "", specification = "", unit = "", quantity = "", rawUnitPrice = "", rawDiscountRate = "", note = ""] = line.split("\t").map((value) => value.trim());
-    const unitPrice = rawUnitPrice.replace(/,/g, ""), discountRate = rawDiscountRate || "0", errors: string[] = [];
-    if (!name) errors.push("품명은 필수입니다."); if (!unit) errors.push("단위는 필수입니다.");
-    if (!/^\d+(?:\.\d{1,4})?$/.test(quantity) || Number(quantity) <= 0) errors.push("수량은 0보다 큰 숫자여야 합니다.");
-    if (!/^\d+$/.test(unitPrice) || !Number.isSafeInteger(Number(unitPrice))) errors.push("단가는 쉼표를 제외한 원 단위 숫자여야 합니다.");
-    if (!/^\d+(?:\.\d{1,2})?$/.test(discountRate) || Number(discountRate) > 100) errors.push("할인율은 0~100 사이 숫자여야 합니다.");
-    return { sourceRow, productId: null, name, specification, unit, quantity, unitPrice, discountRate, note, errors };
-  });
-}
-export function mergeQuotationPasteItems<T>(existing: T[], pasted: T[], mode: PasteMode): T[] { return mode === "replace" ? [...pasted] : [...existing, ...pasted]; }
+import type { QuotationCostCategory } from "@/lib/construction-quotation";
+export type PasteMode="append"|"replace";export type PastedQuotationItem={productId:null;costCategory:QuotationCostCategory;name:string;specification:string;unit:string;quantity:string;unitPrice:string;discountRate:string;note:string};export type ParsedPasteRow=PastedQuotationItem&{sourceRow:number;errors:string[]};
+const aliases:Record<string,QuotationCostCategory>={재료비:"MATERIAL",MATERIAL:"MATERIAL",노무비:"LABOR",인건비:"LABOR",LABOR:"LABOR",경비:"EXPENSE",EXPENSE:"EXPENSE",출장비:"TRAVEL",TRAVEL:"TRAVEL"};
+const automatic:Record<string,string>={공구손료:"공구손료는 노무비 비율로 자동 계산됩니다.",일반관리비:"일반관리비는 재료비와 노무비 비율로 자동 계산됩니다.",산업안전보건관리비:"산업안전보건관리비는 재료비와 노무비 비율로 자동 계산됩니다."};
+function isHeader(c:string[]){return c[0]?.replace(/\s/g,"")==="비용구분"||c.slice(0,4).filter(x=>["비용구분","품명","규격","단위"].includes(x.replace(/\s/g,""))).length>=3}
+export function parseQuotationPaste(text:string):ParsedPasteRow[]{const lines=text.replace(/\r/g,"").split("\n").map((line,i)=>({line,sourceRow:i+1})).filter(x=>x.line.trim());const firstColumns=lines[0]?.line.split("\t")??[];const legacy=firstColumns[0]?.trim().replace(/\s/g,"")==="품명"||firstColumns.length===7;return lines.filter((x,i)=>!(i===0&&isHeader(x.line.split("\t").map(v=>v.trim())))).map(({line,sourceRow})=>{const columns=line.split("\t").map(v=>v.trim());const[rawCategory="",name="",specification="",unit="",quantity="",rawPrice="",rawDiscount="",note=""]=legacy?["MATERIAL",...columns]:columns;const errors:string[]=[];const costCategory=aliases[rawCategory.toUpperCase()]??aliases[rawCategory]??"MATERIAL";if(automatic[rawCategory])errors.push(automatic[rawCategory]);else if(!aliases[rawCategory.toUpperCase()]&&!aliases[rawCategory])errors.push("비용구분은 재료비, 노무비, 경비, 출장비 중 하나여야 합니다.");const unitPrice=rawPrice.replace(/,/g,""),discountRate=rawDiscount||"0";if(!name)errors.push("품명은 필수입니다.");if(!unit)errors.push("단위는 필수입니다.");if(!/^\d+(?:\.\d{1,4})?$/.test(quantity)||Number(quantity)<=0)errors.push("수량은 0보다 큰 숫자여야 합니다.");if(!/^\d+$/.test(unitPrice)||!Number.isSafeInteger(Number(unitPrice)))errors.push("단가는 쉼표를 제외한 원 단위 숫자여야 합니다.");if(!/^\d+(?:\.\d{1,2})?$/.test(discountRate)||Number(discountRate)>100)errors.push("할인율은 0~100 사이 숫자여야 합니다.");return{sourceRow,productId:null,costCategory,name,specification,unit,quantity,unitPrice,discountRate,note,errors}})}
+export function mergeQuotationPasteItems<T>(existing:T[],pasted:T[],mode:PasteMode):T[]{return mode==="replace"?[...pasted]:[...existing,...pasted]}
