@@ -358,6 +358,42 @@ model CompanySetting {
   updatedAt          DateTime @updatedAt
 }
 
+model SupplierProfile {
+  id                   String   @id @default(cuid())
+  profileName          String
+  companyName          String
+  businessNumber       String
+  representativeName   String
+  businessType         String?
+  businessCategory     String?
+  address              String?
+  detailedAddress      String?
+  postalCode           String?
+  phone                String?
+  fax                   String?
+  email                String?
+  documentManagerName  String?
+  documentManagerPhone String?
+  documentManagerEmail String?
+  bankName             String?
+  bankAccount          String?
+  accountHolder        String?
+  logoUrl              String?
+  logoOriginalName     String?
+  sealUrl              String?
+  sealOriginalName     String?
+  isDefault            Boolean  @default(false)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  deletedAt            DateTime?
+  quotations           Quotation[]
+  statements           Statement[]
+
+  @@index([isDefault, isActive, deletedAt])
+  @@index([businessNumber])
+}
+
 model Client {
   id                           String                 @id @default(cuid())
   clientCode                   String                 @unique
@@ -453,6 +489,11 @@ model Quotation {
   generalAdminAmount   Decimal              @default(0)
   safetyHealthRate     Decimal              @default(0)
   safetyHealthAmount   Decimal              @default(0)
+  supplierProfileId    String?
+  supplierProfile      SupplierProfile?     @relation(fields: [supplierProfileId], references: [id])
+  supplierSnapshot     Json?
+  showSupplierLogo     Boolean              @default(true)
+  showSupplierSeal     Boolean              @default(true)
   createdById          String
   createdBy            User                 @relation("QuotationCreator", fields: [createdById], references: [id])
   approvedById         String?
@@ -628,6 +669,11 @@ model Statement {
   recipientEmail       String?
   supplierMemo         String?
   printRemark          String?
+  supplierProfileId    String?
+  supplierProfile      SupplierProfile? @relation(fields: [supplierProfileId], references: [id])
+  supplierSnapshot     Json?
+  showSupplierLogo     Boolean         @default(true)
+  showSupplierSeal     Boolean         @default(true)
   status               StatementStatus @default(DRAFT)
   createdById          String
   createdBy            User            @relation(fields: [createdById], references: [id])

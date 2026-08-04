@@ -1,0 +1,5 @@
+import{randomUUID}from"node:crypto";import{mkdir,readFile,unlink,writeFile}from"node:fs/promises";import path from"node:path";import{validateCompanyImage}from"./validation";
+const root=()=>path.resolve(process.env.UPLOAD_DIR??"./uploads");
+export async function saveCompanyImage(profileId:string,kind:"logo"|"seal",file:File){const extension=validateCompanyImage(file),dir=path.join(root(),"company-assets",profileId);await mkdir(dir,{recursive:true});const storedName=`${kind}-${randomUUID()}${extension}`;await writeFile(path.join(dir,storedName),Buffer.from(await file.arrayBuffer()));return{fileUrl:`/api/company/assets/${profileId}/${storedName}`,storedName,originalName:file.name}}
+export async function readCompanyImage(profileId:string,storedName:string){if(!/^[a-z0-9-]+\.(png|jpg|jpeg|bmp)$/i.test(storedName))throw new Error("잘못된 파일명입니다.");return readFile(path.join(root(),"company-assets",profileId,storedName))}
+export async function deleteCompanyImage(url:string|null|undefined){if(!url)return;const match=url.match(/\/api\/company\/assets\/([^/]+)\/([^/?]+)/);if(!match)return;try{await unlink(path.join(root(),"company-assets",match[1],match[2]))}catch{}}
