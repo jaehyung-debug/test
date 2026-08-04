@@ -1,0 +1,3 @@
+import Link from "next/link";
+const links=[["구매 현황","/procurement"],["견적요청","/procurement/rfqs"],["업체 견적 비교","/procurement/rfqs"],["발주서","/procurement/purchase-orders"],["입고 관리","/procurement/goods-receipts"],["대금집행","/procurement/disbursements"],["공급업체별 구매내역","/procurement/suppliers"]] as const;
+export function ProcurementNav(){return <nav className="mb-5 flex flex-wrap gap-2">{links.map(([label,href])=><Link className="rounded-lg border bg-white px-3 py-2 text-sm hover:border-blue-400 hover:text-blue-700" href={href} key={label}>{label}</Link>)}</nav>}
