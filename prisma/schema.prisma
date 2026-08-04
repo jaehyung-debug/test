@@ -134,6 +134,39 @@ enum OrderStageStatus {
   SKIPPED
 }
 
+enum CalendarType {
+  PERSONAL
+  SHARED
+  PROJECT
+  ORDER
+}
+
+enum CalendarMemberRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum ScheduleCategory {
+  MEETING
+  LEAVE
+  BUSINESS_TRIP
+  WEEKEND_WORK
+  EXTERNAL_MEETING
+  INTERNAL_TRAINING
+  TASK
+  DELIVERY
+  OTHER
+}
+
+enum ScheduleRepeatType {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
 enum ApprovalTargetType {
   QUOTATION
   EXPENSE
@@ -153,34 +186,38 @@ enum DeliveryDeadlineType {
 }
 
 model User {
-  id                   String       @id @default(cuid())
-  email                String       @unique
+  id                   String             @id @default(cuid())
+  email                String             @unique
   passwordHash         String
   name                 String
   phone                String?
-  role                 Role         @default(STAFF)
+  role                 Role               @default(STAFF)
   department           String?
   position             String?
-  isActive             Boolean      @default(true)
+  isActive             Boolean            @default(true)
   lastLoginAt          DateTime?
-  createdAt            DateTime     @default(now())
-  updatedAt            DateTime     @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
   deletedAt            DateTime?
   clients              Client[]
-  createdQuotations    Quotation[]  @relation("QuotationCreator")
-  approvedQuotations   Quotation[]  @relation("QuotationApprover")
+  createdQuotations    Quotation[]        @relation("QuotationCreator")
+  approvedQuotations   Quotation[]        @relation("QuotationApprover")
   managedProjects      Project[]
-  requestedExpenses    Expense[]    @relation("ExpenseRequester")
-  approvedExpenses     Expense[]    @relation("ExpenseApprover")
+  requestedExpenses    Expense[]          @relation("ExpenseRequester")
+  approvedExpenses     Expense[]          @relation("ExpenseApprover")
   statements           Statement[]
   payments             Payment[]
-  requestedApprovals   Approval[]   @relation("ApprovalRequester")
-  assignedApprovals    Approval[]   @relation("ApprovalApprover")
+  requestedApprovals   Approval[]         @relation("ApprovalRequester")
+  assignedApprovals    Approval[]         @relation("ApprovalApprover")
   attachments          Attachment[]
   auditLogs            AuditLog[]
-  managedOrders        Order[]      @relation("OrderManager")
-  assignedOrderStages  OrderStage[] @relation("OrderStageAssignee")
-  completedOrderStages OrderStage[] @relation("OrderStageCompleter")
+  managedOrders        Order[]            @relation("OrderManager")
+  assignedOrderStages  OrderStage[]       @relation("OrderStageAssignee")
+  completedOrderStages OrderStage[]       @relation("OrderStageCompleter")
+  ownedCalendars       Calendar[]         @relation("CalendarOwner")
+  calendarMemberships  CalendarMember[]
+  createdSchedules     ScheduleEvent[]    @relation("ScheduleCreator")
+  scheduleAttendances  ScheduleAttendee[]
 
   @@index([deletedAt])
 }
@@ -351,6 +388,8 @@ model Project {
   payments            Payment[]
   receivableSchedules ReceivableSchedule[]
   orders              Order[]
+  calendars           Calendar[]
+  scheduleEvents      ScheduleEvent[]
 
   @@index([clientId, status])
   @@index([deletedAt])
@@ -645,6 +684,8 @@ model Order {
   updatedAt          DateTime              @updatedAt
   deletedAt          DateTime?
   stages             OrderStage[]
+  calendars          Calendar[]
+  scheduleEvents     ScheduleEvent[]
 
   @@index([clientId, status])
   @@index([projectId])
@@ -675,6 +716,7 @@ model OrderStage {
   updatedAt      DateTime             @updatedAt
   links          OrderStageLink[]
   schedules      OrderStageSchedule[]
+  scheduleEvents ScheduleEvent[]
 
   @@unique([orderId, sortOrder])
   @@index([orderId, status])
@@ -703,4 +745,84 @@ model OrderStageSchedule {
   createdAt    DateTime   @default(now())
 
   @@index([orderStageId, startAt])
+}
+
+model Calendar {
+  id        String           @id @default(cuid())
+  name      String
+  type      CalendarType
+  color     String?
+  ownerId   String?
+  owner     User?            @relation("CalendarOwner", fields: [ownerId], references: [id])
+  projectId String?
+  project   Project?         @relation(fields: [projectId], references: [id])
+  orderId   String?
+  order     Order?           @relation(fields: [orderId], references: [id])
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  members   CalendarMember[]
+  schedules ScheduleEvent[]
+
+  @@index([ownerId, type])
+  @@index([projectId])
+  @@index([orderId])
+}
+
+model CalendarMember {
+  id         String             @id @default(cuid())
+  calendarId String
+  calendar   Calendar           @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User               @relation(fields: [userId], references: [id])
+  role       CalendarMemberRole @default(VIEWER)
+  createdAt  DateTime           @default(now())
+
+  @@unique([calendarId, userId])
+}
+
+model ScheduleEvent {
+  id              String             @id @default(cuid())
+  calendarId      String
+  calendar        Calendar           @relation(fields: [calendarId], references: [id])
+  title           String
+  category        ScheduleCategory   @default(TASK)
+  location        String?
+  startAt         DateTime
+  endAt           DateTime
+  allDay          Boolean            @default(false)
+  repeatType      ScheduleRepeatType @default(NONE)
+  repeatInterval  Int                @default(1)
+  repeatUntil     DateTime?
+  reminderMinutes Int?
+  description     String?
+  projectId       String?
+  project         Project?           @relation(fields: [projectId], references: [id])
+  orderId         String?
+  order           Order?             @relation(fields: [orderId], references: [id])
+  orderStageId    String?
+  orderStage      OrderStage?        @relation(fields: [orderStageId], references: [id])
+  createdById     String
+  createdBy       User               @relation("ScheduleCreator", fields: [createdById], references: [id])
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+  attendees       ScheduleAttendee[]
+
+  @@index([calendarId, startAt])
+  @@index([projectId])
+  @@index([orderId])
+  @@index([orderStageId])
+  @@index([deletedAt])
+}
+
+model ScheduleAttendee {
+  id         String        @id @default(cuid())
+  scheduleId String
+  schedule   ScheduleEvent @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User          @relation(fields: [userId], references: [id])
+  createdAt  DateTime      @default(now())
+
+  @@unique([scheduleId, userId])
 }
