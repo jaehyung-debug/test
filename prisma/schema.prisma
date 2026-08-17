@@ -303,6 +303,7 @@ model User {
   clients                Client[]
   createdQuotations      Quotation[]            @relation("QuotationCreator")
   approvedQuotations     Quotation[]            @relation("QuotationApprover")
+  issuedQuotations       Quotation[]            @relation("QuotationIssuer")
   managedProjects        Project[]
   requestedExpenses      Expense[]              @relation("ExpenseRequester")
   approvedExpenses       Expense[]              @relation("ExpenseApprover")
@@ -502,6 +503,9 @@ model Quotation {
   approvedBy           User?                @relation("QuotationApprover", fields: [approvedById], references: [id])
   approvedAt           DateTime?
   sentAt               DateTime?
+  issuedAt             DateTime?
+  issuedById           String?
+  issuedBy             User?                @relation("QuotationIssuer", fields: [issuedById], references: [id])
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
   deletedAt            DateTime?
@@ -559,6 +563,11 @@ model Project {
   expectedEndDate       DateTime?
   actualEndDate         DateTime?
   contractAmount        Decimal
+  contractSupplyAmount  Decimal                @default(0)
+  contractVatAmount     Decimal                @default(0)
+  contractTotalAmount   Decimal                @default(0)
+  quotationNumberSnapshot String?
+  quotationRevisionSnapshot Int?
   budgetAmount          Decimal
   progressRate          Decimal                @default(0)
   status                ProjectStatus          @default(PLANNED)

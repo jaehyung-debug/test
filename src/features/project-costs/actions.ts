@@ -7,6 +7,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { nextDocumentNumber } from "@/lib/document-number";
+import { canCreateProjectFromQuotation, projectContractValues } from "@/lib/quotation-project-workflow";
 import { calculateExpenseAmounts } from "./calculations";
 
 const optional = z.string().trim().transform((v) => v || null);
@@ -20,7 +21,40 @@ async function user() { const s = await auth(); if (!s?.user?.email) go("/login"
 async function audit(tx: Prisma.TransactionClient, userId: string, action: string, type: string, id: string, afterData?: Prisma.InputJsonValue) { await tx.auditLog.create({data:{userId,action,targetType:type,targetId:id,afterData}}); }
 const refresh = (id?: string) => { revalidatePath("/project-costs"); if (id) revalidatePath(`/project-costs/${id}`); };
 
-export async function saveProject(form: FormData) { const me=await user(); const id=String(form.get("id")??""); try { const data=projectSchema.parse(Object.fromEntries(form)); const project=await db.$transaction(async tx => { if(id){const p=await tx.project.update({where:{id},data}); await audit(tx,me.id,"UPDATE","PROJECT",p.id); return p;} const projectCode=await nextDocumentNumber(tx,"project"); const p=await tx.project.create({data:{...data,projectCode}}); await audit(tx,me.id,"CREATE","PROJECT",p.id); return p; }); refresh(project.id); go(`/project-costs/${project.id}?success=${encodeURIComponent("프로젝트가 저장되었습니다.")}`); } catch(e){if(isRedirect(e))throw e; go(`${id?`/project-costs/${id}/edit`:"/project-costs/projects/new"}?error=${encodeURIComponent(message(e))}`);} }
+export async function saveProject(form: FormData) {
+  const me = await user(), id = String(form.get("id") ?? "");
+  if (!id) go(`/project-costs/projects/new?error=${encodeURIComponent("프로젝트는 발행된 견적서에서 등록합니다.")}`);
+  try {
+    const data = projectSchema.parse(Object.fromEntries(form));
+    const project = await db.$transaction(async (tx) => { const row = await tx.project.update({ where: { id, deletedAt: null }, data }); await audit(tx, me.id, "UPDATE", "PROJECT", row.id); return row; });
+    refresh(project.id); go(`/project-costs/${project.id}?success=${encodeURIComponent("프로젝트가 저장되었습니다.")}`);
+  } catch (error) { if (isRedirect(error)) throw error; go(`/project-costs/${id}/edit?error=${encodeURIComponent(message(error))}`); }
+}
+
+export async function createProjectFromQuotation(form: FormData) {
+  const me = await user();
+  const quotationId = String(form.get("quotationId") ?? "");
+  const managerId = String(form.get("managerId") ?? "");
+  const startDate = new Date(String(form.get("startDate") ?? ""));
+  const expectedEndDate = form.get("expectedEndDate") ? new Date(String(form.get("expectedEndDate"))) : null;
+  const memo = String(form.get("memo") ?? "").trim() || null;
+  if (!managerId || Number.isNaN(startDate.valueOf())) go(`/quotations/${quotationId}/project/new?error=${encodeURIComponent("담당자와 시작일을 확인해 주세요.")}`);
+  try {
+    const project = await db.$transaction(async (tx) => {
+      const quotation = await tx.quotation.findFirstOrThrow({ where: { id: quotationId }, include: { project: true } });
+      const eligibility = canCreateProjectFromQuotation(quotation); if (!eligibility.allowed) throw new Error(eligibility.reason ?? "project-not-allowed");
+      const contracts = projectContractValues(quotation);
+      const row = await tx.project.create({ data: { projectCode: await nextDocumentNumber(tx, "project"), quotationId: quotation.id, clientId: quotation.clientId, projectName: quotation.projectName, managerId, startDate, expectedEndDate, memo, ...contracts, quotationNumberSnapshot: quotation.quotationNumber, quotationRevisionSnapshot: quotation.revision, budgetAmount: 0, status: "CONTRACTED" } });
+      await audit(tx, me.id, "CREATE_FROM_QUOTATION", "PROJECT", row.id, { quotationId: quotation.id, quotationNumber: quotation.quotationNumber, revision: quotation.revision });
+      return row;
+    });
+    refresh(project.id); revalidatePath(`/quotations/${quotationId}`); go(`/project-costs/${project.id}?success=${encodeURIComponent("견적서에서 프로젝트를 등록했습니다.")}`);
+  } catch (error) {
+    if (isRedirect(error)) throw error;
+    const known = error instanceof Error && ["삭제된 견적서입니다.", "견적서를 먼저 발행해 주세요.", "이미 프로젝트가 등록된 견적서입니다."].includes(error.message); const reason = known ? (error as Error).message : "발행된 견적서만 프로젝트로 등록할 수 있습니다.";
+    go(`/quotations/${quotationId}?error=${encodeURIComponent(reason)}`);
+  }
+}
 
 const budgetRows = z.array(z.object({expenseCategoryId:z.string().min(1),budgetAmount:money,memo:optional}));
 export async function saveBudget(form: FormData) { const me=await user(); const projectId=String(form.get("projectId")??""); try { const rows=budgetRows.parse(JSON.parse(String(form.get("rows")??"[]"))); if(new Set(rows.map(r=>r.expenseCategoryId)).size!==rows.length) throw new Error("duplicate"); const total=rows.reduce((s,r)=>s+r.budgetAmount,0); await db.$transaction(async tx=>{await tx.projectBudget.deleteMany({where:{projectId}}); for(const row of rows) await tx.projectBudget.create({data:{projectId,...row}}); await tx.project.update({where:{id:projectId},data:{budgetAmount:total}}); await audit(tx,me.id,"UPDATE","PROJECT_BUDGET",projectId,{total});}); refresh(projectId); go(`/project-costs/${projectId}?tab=budget&success=${encodeURIComponent("예산이 저장되었습니다.")}`); } catch(e){if(isRedirect(e))throw e; const m=e instanceof Error&&e.message==="duplicate"?"같은 비용구분을 중복 등록할 수 없습니다.":message(e); go(`/project-costs/${projectId}/budget?error=${encodeURIComponent(m)}`);} }

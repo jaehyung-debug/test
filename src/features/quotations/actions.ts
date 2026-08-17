@@ -30,6 +30,17 @@ export async function saveQuotation(formData: FormData) {
   } catch (error) { if (isRedirect(error)) throw error; go(`${id ? `/quotations/${id}` : "/quotations/new"}?error=${encodeURIComponent(errorMessage(error))}`); }
 }
 export async function deleteQuotation(formData: FormData) { const user = await currentUser(), id = String(formData.get("id") ?? ""); await db.$transaction([db.quotation.update({ where: { id }, data: { deletedAt: new Date() } }), db.auditLog.create({ data: { userId: user.id, action: "DELETE", targetType: "QUOTATION", targetId: id } })]); revalidatePath("/quotations"); go(`/quotations?success=${encodeURIComponent("견적서가 삭제되었습니다.")}`); }
+export async function issueQuotation(formData: FormData) {
+  const user = await currentUser(), id = String(formData.get("id") ?? "");
+  await db.$transaction(async (tx) => {
+    const quotation = await tx.quotation.findFirstOrThrow({ where: { id, deletedAt: null } });
+    if (quotation.issuedAt) return;
+    const now = new Date();
+    await tx.quotation.update({ where: { id }, data: { issuedAt: now, issuedById: user.id, status: quotation.status === "DRAFT" ? "SENT" : quotation.status } });
+    await tx.auditLog.create({ data: { userId: user.id, action: "ISSUE", targetType: "QUOTATION", targetId: id, afterData: { issuedAt: now.toISOString(), issuedById: user.id } } });
+  });
+  revalidatePath("/quotations"); revalidatePath(`/quotations/${id}`); go(`/quotations/${id}?success=${encodeURIComponent("견적서 발행을 확정했습니다.")}`);
+}
 export async function createQuotationRevision(formData: FormData) {
   const user = await currentUser(), id = String(formData.get("id") ?? "");
   try {
