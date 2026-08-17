@@ -45,3 +45,5 @@ export function findLowestQuotes(rows: Array<{ rfqItemId: string; unitPrice: num
   }
   return result;
 }
+export function calculateReceivedAmount(items:Array<{orderedQuantity:number;unitPrice:number;receivedQuantity:number}>){return items.reduce((sum,item)=>{const received=Math.min(Math.max(0,item.receivedQuantity),item.orderedQuantity),supply=won(received*item.unitPrice);return sum+supply+won(supply*.1)},0)}
+export function summarizeDisbursements(orderTotal:number,rows:Array<{status:string;totalAmount:number;executedDate?:Date|null}>){const active=rows.filter(x=>!["CANCELED","REJECTED"].includes(x.status)),planned=active.reduce((s,x)=>s+x.totalAmount,0),executed=active.filter(x=>x.status==="EXECUTED").reduce((s,x)=>s+x.totalAmount,0);return{plannedAmount:planned,executedAmount:executed,remainingAmount:orderTotal-executed,status:executed>=orderTotal?"지급 완료":executed>0?"일부 지급":planned>0?"집행 예정":"미계획",overpaid:executed>orderTotal,lastExecutedAt:active.filter(x=>x.status==="EXECUTED"&&x.executedDate).map(x=>x.executedDate!).sort((a,b)=>b.getTime()-a.getTime())[0]??null}}

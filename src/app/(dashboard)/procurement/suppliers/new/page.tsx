@@ -1,0 +1,1 @@
+import{PageHeader}from"@/components/common/page";import{SupplierForm}from"@/components/procurement/supplier-form";import{ProcurementNav}from"@/components/procurement/procurement-nav";export default function Page(){return <div className="p-8"><PageHeader title="공급업체 신규등록"/><ProcurementNav/><SupplierForm/></div>}

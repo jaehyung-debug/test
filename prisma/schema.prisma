@@ -389,6 +389,7 @@ model SupplierProfile {
   deletedAt            DateTime?
   quotations           Quotation[]
   statements           Statement[]
+  issuedPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderIssuer")
 
   @@index([isDefault, isActive, deletedAt])
   @@index([businessNumber])
@@ -430,6 +431,7 @@ model Client {
   defaultPurchasePaymentTerms  String?
   defaultPurchaseDeliveryTerms String?
   supplierMemo                 String?
+  isActive                     Boolean                @default(true)
   createdAt                    DateTime               @default(now())
   updatedAt                    DateTime               @updatedAt
   deletedAt                    DateTime?
@@ -979,6 +981,7 @@ model PurchaseRfqItem {
   sourceQuotationItem    QuotationItem?          @relation(fields: [sourceQuotationItemId], references: [id])
   sortOrder              Int
   itemCode               String?
+  modelName              String?
   name                   String
   specification          String?
   unit                   String
@@ -1078,6 +1081,11 @@ model PurchaseOrder {
   project              Project?                     @relation(fields: [projectId], references: [id])
   supplierId           String
   supplier             Client                       @relation(fields: [supplierId], references: [id])
+  issuerSupplierProfileId String?
+  issuerSupplierProfile SupplierProfile?            @relation("PurchaseOrderIssuer", fields: [issuerSupplierProfileId], references: [id])
+  issuerSnapshot       Json?
+  showIssuerLogo       Boolean                      @default(true)
+  showIssuerSeal       Boolean                      @default(true)
   orderDate            DateTime
   deliveryDeadlineType PurchaseDeliveryDeadlineType @default(DATE)
   deliveryDeadlineDate DateTime?
@@ -1116,6 +1124,8 @@ model PurchaseOrderItem {
   supplierQuotationItem   SupplierQuotationItem? @relation(fields: [supplierQuotationItemId], references: [id])
   sortOrder               Int
   itemCode                String?
+  maker                   String?
+  modelName               String?
   name                    String
   specification           String?
   unit                    String
