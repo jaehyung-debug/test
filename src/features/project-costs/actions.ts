@@ -7,7 +7,7 @@ import { z } from "zod";
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
 import { nextDocumentNumber } from "@/lib/document-number";
-import { canCreateProjectFromQuotation, projectContractValues } from "@/lib/quotation-project-workflow";
+import { canCreateProjectFromQuotation, evaluateProjectCompletion, projectContractValues } from "@/lib/quotation-project-workflow";
 import { calculateExpenseAmounts } from "./calculations";
 
 const optional = z.string().trim().transform((v) => v || null);
@@ -53,6 +53,24 @@ export async function createProjectFromQuotation(form: FormData) {
     if (isRedirect(error)) throw error;
     const known = error instanceof Error && ["삭제된 견적서입니다.", "견적서를 먼저 발행해 주세요.", "이미 프로젝트가 등록된 견적서입니다."].includes(error.message); const reason = known ? (error as Error).message : "발행된 견적서만 프로젝트로 등록할 수 있습니다.";
     go(`/quotations/${quotationId}?error=${encodeURIComponent(reason)}`);
+  }
+}
+
+export async function completeProject(form: FormData) {
+  const me = await user(), projectId = String(form.get("projectId") ?? "");
+  try {
+    if (form.get("confirm") !== "on") throw new Error("프로젝트 완료 확인이 필요합니다.");
+    await db.$transaction(async (tx) => {
+      const project = await tx.project.findFirstOrThrow({ where: { id: projectId, deletedAt: null }, include: { orders: { where: { deletedAt: null } }, statements: { where: { deletedAt: null } } } });
+      const result = evaluateProjectCompletion({ orderStatuses: project.orders.map((order) => order.status), statementStatuses: project.statements.map((statement) => statement.status) });
+      if (!result.allowed) throw new Error(!result.ordersComplete ? "모든 오더를 먼저 완료해 주세요." : "발행된 거래명세서가 필요합니다.");
+      await tx.project.update({ where: { id: projectId }, data: { status: "COMPLETED", actualEndDate: new Date() } });
+      await audit(tx, me.id, "COMPLETE", "PROJECT", projectId, result);
+    });
+    refresh(projectId); go(`/project-costs/${projectId}?success=${encodeURIComponent("프로젝트를 완료 처리했습니다. 미수금은 별도로 정산할 수 있습니다.")}`);
+  } catch (error) {
+    if (isRedirect(error)) throw error;
+    go(`/project-costs/${projectId}?error=${encodeURIComponent(error instanceof Error ? error.message : "프로젝트 완료 조건을 확인해 주세요.")}`);
   }
 }
 

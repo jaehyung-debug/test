@@ -13,3 +13,9 @@ export function canCreateProjectFromQuotation(quotation: { issuedAt: Date | null
 export function projectContractValues(quotation: { taxableAmount: number | string; vatAmount: number | string; totalAmount: number | string }) {
   return { contractAmount: Number(quotation.taxableAmount), contractSupplyAmount: Number(quotation.taxableAmount), contractVatAmount: Number(quotation.vatAmount), contractTotalAmount: Number(quotation.totalAmount) };
 }
+
+export function evaluateProjectCompletion(input: { orderStatuses: string[]; statementStatuses: string[] }) {
+  const ordersComplete = input.orderStatuses.length > 0 && input.orderStatuses.every((status) => status === "COMPLETED" || status === "CANCELED");
+  const hasIssuedStatement = input.statementStatuses.some((status) => status === "ISSUED");
+  return { allowed: ordersComplete && hasIssuedStatement, ordersComplete, hasIssuedStatement };
+}
